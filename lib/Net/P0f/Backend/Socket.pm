@@ -4,7 +4,7 @@ use Carp;
 use Socket;
 
 { no strict;
-  $VERSION = 0.01;
+  $VERSION = 0.02;
   @ISA = qw(Net::P0f);
 }
 
@@ -64,7 +64,7 @@ sub init {
     for my $opt (keys %opts) {
         exists $self->{options}{$opt} ?
         ( $self->{options}{$opt} = $opts{$opt} and delete $opts{$opt} )
-        : carp "warning: unknown option '$opt'";
+        : carp "warning: Unknown option '$opt'";
     }
 }
 
@@ -75,7 +75,7 @@ sub init {
 sub run {
     my $self = shift;
     die "*** ",(caller(0))[3]," not implemented ***\n";
-    croak "Please set the path to the socket with the socket_path option" 
+    croak "fatal: Please set the path to the socket with the 'socket_path' option" 
       unless $self->{options}{socket_path};
 }
 
@@ -120,6 +120,39 @@ sub decode_p0f_response {
 
 =back
 
+=head1 DIAGNOSTICS
+
+These messages are classified as follows (listed in increasing order of 
+desperatin): 
+
+=over 4
+
+=item *
+
+B<(W)> A warning, usually caused by bad user data. 
+
+=item *
+
+B<(E)> An error caused by external code. 
+
+=item *
+
+B<(F)> A fatal error caused by the code of this module. 
+
+=back
+
+=over 4
+
+=item Please set the path to the socket with the 'socket_path' option
+
+B<(F)> You must set the C<socket_path> option with the path to the socket. 
+
+=item Unknown option '%s'
+
+B<(W)> You called an accesor which does not correspond to a known option.
+
+=back
+
 =head1 SEE ALSO
 
 L<Net::P0f>
@@ -131,9 +164,10 @@ SE<eacute>bastien Aperghis-Tramoni E<lt>sebastien@aperghis.netE<gt>
 =head1 BUGS
 
 Please report any bugs or feature requests to
-C<bug-net-p0f-xs@rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org>.  I will be notified, and then you'll automatically
-be notified of progress on your bug as I make changes.
+L<bug-net-p0f-xs@rt.cpan.org>, or through the web interface at
+L<https://rt.cpan.org/NoAuth/ReportBug.html?Queue=Net-P0f>. 
+I will be notified, and then you'll automatically be notified 
+of progress on your bug as I make changes.
 
 =head1 ACKNOWLEDGEMENTS
 

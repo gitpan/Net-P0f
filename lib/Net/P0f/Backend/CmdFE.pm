@@ -5,7 +5,7 @@ use IO::File;
 use IPC::Open3;
 
 { no strict;
-  $VERSION = 0.01;
+  $VERSION = 0.02;
   @ISA = qw(Net::P0f);
 }
 
@@ -64,7 +64,7 @@ sub init {
     for my $opt (keys %opts) {
         exists $self->{options}{$opt} ?
         ( $self->{options}{$opt} = $opts{$opt} and delete $opts{$opt} )
-        : carp "warning: unknown option '$opt'";
+        : carp "warning: Unknown option '$opt'";
     }
 }
 
@@ -79,7 +79,7 @@ sub run {
     my $self = shift;
 
     # check that the program_path is defined
-    croak "Please set the path to p0f with the program_path option" 
+    croak "fatal: Please set the path to p0f with the 'program_path' option" 
       unless length $self->{options}{program_path};
 
     # construct program arguments
@@ -126,7 +126,7 @@ sub run {
     my $pid = open3($stdin, $stdout, $stderr, 
         $self->{options}{program_path}, @program_args);
 
-    croak "Can't exec '", $self->{options}{program_path}, "': $!" unless $pid;
+    croak "fatal: Can't exec '", $self->{options}{program_path}, "': $!" unless $pid;
 
     # initialize looping
     my $callback = $self->{loop}{callback};
@@ -190,7 +190,7 @@ sub run {
         eval {
             &$callback($self, \%header, \%os_info, \%link_info);
         };
-        carp "The callback died with the following error: $@" and last if $@;
+        carp "error: The callback died with the following error: $@" and last if $@;
         
         $self->{loop}{keep_on} = 0 if ++$loops == $self->{loop}{count};
     }
@@ -203,6 +203,50 @@ sub run {
 
 =back
 
+
+=head1 DIAGNOSTICS
+
+These messages are classified as follows (listed in increasing order of 
+desperatin): 
+
+=over 4
+
+=item *
+
+B<(W)> A warning, usually caused by bad user data. 
+
+=item *
+
+B<(E)> An error caused by external code. 
+
+=item *
+
+B<(F)> A fatal error caused by the code of this module. 
+
+=back
+
+=over 4 
+
+=item Can't exec '%s': %s
+
+B<(F)> This module was unable to execute the program. Detailed error follows. 
+
+=item Please set the path to p0f with the 'program_path' option
+
+B<(F)> You must set the C<program_path> option with the path to the p0f binary. 
+
+=item The callback died with the following error: %s
+
+B<(E)> As the message says, the callback function died. Its error was catched 
+and follows. 
+
+=item Unknown option '%s'
+
+B<(W)> You called an accesor which does not correspond to a known option. 
+
+=back
+
+
 =head1 SEE ALSO
 
 L<Net::P0f>
@@ -214,9 +258,10 @@ SE<eacute>bastien Aperghis-Tramoni E<lt>sebastien@aperghis.netE<gt>
 =head1 BUGS
 
 Please report any bugs or feature requests to
-C<bug-net-p0f-cmdfe@rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org>.  I will be notified, and then you'll automatically
-be notified of progress on your bug as I make changes.
+L<bug-net-p0f-cmdfe@rt.cpan.org>, or through the web interface at
+L<https://rt.cpan.org/NoAuth/ReportBug.html?Queue=Net-P0f>. 
+I will be notified, and then you'll automatically be notified 
+of progress on your bug as I make changes.
 
 =head1 ACKNOWLEDGEMENTS
 

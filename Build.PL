@@ -7,9 +7,12 @@ my $builder = Module::Build->new(
     dist_author         => 'Sébastien Aperghis-Tramoni <sebastien@aperghis.net>',
     dist_version_from   => 'lib/Net/P0f.pm',
     requires => {
-        'Net::Pcap' => 0,
+        'Net::Pcap' => '0.04',
         'Test::More' => 0,
     },
+    recommends => {
+        'Net::Pcap' => '0.05',
+    }, 
     add_to_cleanup      => [ 'Net-P0f-*' ],
 );
 

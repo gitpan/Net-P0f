@@ -7,7 +7,7 @@ use Net::P0f::Backend::Socket;
 use Net::P0f::Backend::XS;
 
 { no strict;
-  $VERSION = 0.01;
+  $VERSION = 0.02;
 }
 
 =head1 NAME
@@ -16,7 +16,7 @@ Net::P0f - Perl wrapper for the P0f utility
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =head1 SYNOPSIS
 
@@ -34,9 +34,10 @@ Version 0.01
 
 This module (and its associated helper modules) is a Perl interface to 
 the P0f utility. P0f is a passive operating system fingerprinting: it 
-identifies the system of network devices by passively looking at specific 
-patterns in their TCP/IP packets. 
-
+identifies the operating system of network devices by I<passively> looking 
+at specific patterns in their TCP/IP packets. Therefore, contrary to 
+others tools like Nmap, P0f does not send any packet and stays completly 
+stealth. 
 For more information on P0f, please see L<http://lcamtuf.coredump.cx/p0f.shtml>
 
 =head1 METHODS
@@ -52,25 +53,41 @@ be used as object methods.
 
 Returns the name of a network device that can be used for operating. 
 
+B<Note:> this function may require administrator privileges on some 
+operating systems. 
+
 =cut
 
 sub lookupdev {
     my $self = shift;
     my $err = '';
     my $dev = Net::Pcap::lookupdev(\$err);
-    carp $err if $err;
+    carp "error: Net::Pcap error: $err" if $err;
     return $dev
 }
 
 =item findalldevs()
 
 Returns a list of all network devices that can be used for operating. 
+If the corresponding fonction is not available in the version of 
+C<Net::Pcap> installed on the system (it appeared in version 0.05), 
+it will print a warning and return the result of C<lookupdev()>.
+
+B<Note:> this function may require administrator privileges on some 
+operating systems. 
 
 =cut
 
 sub findalldevs {
     my $self = shift;
-    die "*** ",(caller(0))[3],"not implemented ***\n";
+    my $err = '';
+    my @devs = ();
+    eval { @devs = Net::Pcap::findalldevs(\$err) };
+    carp "warning: This function is not available with this version of Net::Pcap" 
+      if $@ =~ /findalldevs/;
+    carp "error: Net::Pcap error: $err" if $err;
+    push @devs, __PACKAGE__->lookupdev unless @devs;
+    return @devs
 }
 
 =back
@@ -81,11 +98,12 @@ sub findalldevs {
 
 =item new()
 
-B<Options>
+Create and returns a new objects. 
+The following options are accepted. 
+
+B<Engine options>
 
 =over 4
-
-=item B<Engine options>
 
 =item *
 
@@ -104,22 +122,32 @@ Default is not to chroot.
 
 C<fingerprints_file> - read fingerpints from the given file.
 
-=item B<Input options>
+=back
+
+B<Input options>
 
 Only one the following options must be used. 
+
+=over 4
 
 =item *
 
 C<interface> - selects the network device.
 Accepted values are any interface name that the system can recognize. 
-Remember that such names are usualy not portable. 
+Remember that such names are usualy not portable. For example, you can 
+check if the interface name belongs to the list returned by 
+C<Net::P0f->findalldevs>. 
 
 =item *
 
 C<dump_file> - reads from the given dump file, as created by B<tcpdump(1)> 
 with the C<-w file> option. 
 
-=item B<Detection options>
+=back
+
+B<Detection options>
+
+=over 4
 
 =item *
 
@@ -217,7 +245,7 @@ sub new {
         xs      => 'Net::P0f::Backend::XS', 
     );
     $opts{backend} ||= 'cmd';  # default backend
-    croak "unknown value for option 'backend': $opts{backend}" 
+    croak "fatal: Unknown value for option 'backend': $opts{backend}" 
       unless exists $backends{$opts{'backend'}};
     my $backend = $backends{$opts{backend}};
     bless $self, $backend;
@@ -247,11 +275,11 @@ sub new {
 sub AUTOLOAD {
     no strict;
     my $self = $_[0];
-    my $type = ref $self || croak "I am not an object, so don't call me that way.";
+    my $type = ref $self or croak "I am not an object, so don't call me that way.";
     my $name = $AUTOLOAD;
     $name =~ s/.*:://;
     
-    carp "Unknown option '$name'" unless exists $self->{options}{$name};
+    carp "warning: Unknown option '$name'" unless exists $self->{options}{$name};
 
     my $code = q{
         sub {
@@ -309,15 +337,15 @@ sub loop {
     my %opts = @_;
 
     for my $opt (qw(callback count)) {
-        croak "Option '$opt' was not set" unless $opts{$opt};
+        croak "fatal: Option '$opt' was not set." unless $opts{$opt};
         $self->{loop}{$opt} = $opts{$opt};
     }
     
     { # check input source
-      my $v = defined($self->{options}{interface}) . defined($self->{options}{dump_file});
+      my $v = -+-defined($self->{options}{interface}) . -+-defined($self->{options}{dump_file});
       for($v) {
           $_ eq '00' and 
-            croak "No input source was defined. Please set one of 'interface' or 'dump_file'.";
+            croak "fatal: No input source was defined. Please set one of 'interface' or 'dump_file'.";
 
           $_ eq '11' and do {
               carp "warning: Both 'interface' and 'dump_file' have been set. 'dump_file' prevails.";
@@ -338,7 +366,7 @@ A callback function has the following signature:
 
     sub callback {
         my($self,$header,$os_info,$link_info) = @_;
-	# ...
+	# do something ...
     }
 
 where the parameters have the following meaning: 
@@ -446,27 +474,105 @@ $SIG{INT}  = \&sighandler;
 $SIG{TERM} = \&sighandler;
 $SIG{QUIT} = \&sighandler;
 
+=head1 BACKENDS
+
+=head2 Command-line version
+
+XXX
+
+
+=head2 Socket version
+
+XXX
+
+
+=head2 XS version
+
+XXX
+
+
+=head1 DIAGNOSTICS
+
+These messages are classified as follows (listed in increasing order of 
+desperation): 
+
+=over 4
+
+=item *
+
+B<(W)> A warning, usually caused by bad user data. 
+
+=item *
+
+B<(E)> An error caused by external code. 
+
+=item *
+
+B<(F)> A fatal error caused by the code of this module. 
+
+=back
+
+=over 4
+
+=item Both 'interface' and 'dump_file' have been set. 'dump_file' prevails.
+
+B<(F)> As the message says, you defined two input sources by setting both 
+C<interface> and C<dump_file>. 
+
+=item Net::Pcap error: %s
+
+B<(E)> The Net::Pcap module returned the following error. 
+
+=item No input source was defined. Please set one of 'interface' or 'dump_file'.
+
+B<(F)> As the message says, you didn't define an input source by setting one 
+of C<interface> or C<dump_file> before calling C<loop()>. 
+
+=item Option '%s' was not set.
+
+B<(F)> A mandatory option wasn't set, hence preventing the program to work. 
+
+=item This function is not available with this version of Net::Pcap
+
+B<(W)> As the message says, the function C<findalldevs()> is not available. 
+This is most probably because you have Net::Pcap version 0.04 or earlier, 
+and Net::Pcap version 0.05 is needed. 
+
+=item Unknown option '%s'
+
+B<(W)> You called an accesor which does not correspond to a known option. 
+
+=item Unknown value for option 'backend': %s
+
+B<(F)> The value for the option C<"backend"> was not given a valid value. 
+This is a fatal error because this option is needed to build the object. 
+
+=back
+
 =head1 SEE ALSO
 
-B<p0f(1)> manual page
+L<p0f(1)>
 
 L<Net::P0f::Backend::CmdFE>, L<Net::P0f::Backend::Socket>, 
 L<Net::P0f::Backend::XS> for backend specific details
 
+L<Net::Pcap>
+
 =head1 AUTHOR
 
-Sébastien Aperghis-Tramoni E<lt>sebastien@aperghis.netE<gt>
+SE<eacute>bastien Aperghis-Tramoni E<lt>sebastien@aperghis.netE<gt>
 
 =head1 BUGS
 
 Please report any bugs or feature requests to
-C<bug-net-p0f@rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org>.  I will be notified, and then you'll automatically
-be notified of progress on your bug as I make changes.
+L<bug-net-p0f@rt.cpan.org>, or through the web interface at
+L<https://rt.cpan.org/NoAuth/ReportBug.html?Queue=Net-P0f>. 
+I will be notified, and then you'll automatically be notified 
+of progress on your bug as I make changes.
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2004 Sébastien Aperghis-Tramoni, All Rights Reserved.
+Copyright 2004 SE<eacute>bastien Aperghis-Tramoni, All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
