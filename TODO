@@ -1,0 +1,8 @@
+TODO list for Net-P0f
+
+ * implement Socket and XS backends
+
+ * add support for masquerade detection
+
+ * more tests...
+
